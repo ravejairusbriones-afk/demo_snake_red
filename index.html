@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Snake - Widescreen Edition (Red Edition)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #121212;
+            font-family: 'Arial', sans-serif;
+            user-select: none;
+        }
+
+        .game-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .header {
+            background-color: #181818;
+            height: 52px;
+            width: 100%;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+        }
+
+        .score-box {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .score-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .board-container {
+            position: relative;
+            flex-grow: 1;
+            width: 100%;
+            background-color: #1a1a1a;
+            overflow: hidden; 
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        #peekerImage {
+            position: absolute;
+            top: 0; 
+            right: 0; 
+            transform: translate(100%, 0); 
+            height: 25vh; 
+            width: auto;
+            z-index: 50; 
+            pointer-events: none; 
+            will-change: transform; 
+            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); 
+            filter: drop-shadow(-10px 0px 25px rgba(0,0,0,0.6)); 
+        }
+
+        #peekerImage.peek {
+            transform: translate(0, 0); 
+        }
+
+        #startScreen {
+            display: flex; 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 100;
+        }
+
+        #gameOverScreen { 
+            display: none; 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 100;
+        }
+
+        .modal-box {
+            background-color: #242424;
+            padding: 40px 60px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            border: 3px solid #333;
+        }
+
+        .modal-box h1 {
+            font-size: 42px;
+            color: #FFF;
+            margin-bottom: 10px;
+            letter-spacing: 1.5px;
+        }
+
+        .modal-box p {
+            font-size: 20px;
+            margin-bottom: 25px;
+            color: #B0B0B0;
+        }
+
+        button {
+            padding: 12px 30px;
+            background-color: #FF3B3B;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        button:hover {
+            background-color: #cc2a2a;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-wrapper">
+        <div class="header">
+            <div class="score-box">
+                <div class="score-item"><span>🍎</span><span id="score">0</span></div>
+                <div class="score-item"><span>🏆</span><span id="highscore">4</span></div>
+            </div>
+        </div>
+        
+        <div class="board-container" id="boardContainer">
+            <canvas id="gameCanvas"></canvas>
+            
+            <img id="peekerImage" src="Gemini_Generated_Image_7zitxs7zitxs7zit.png.png" alt="Peeker">
+
+            <div id="startScreen">
+                <div class="modal-box">
+                    <h1>SNAKE</h1>
+                    <p>Red Edition</p>
+                    <button onclick="startGame()">Click to Start</button>
+                </div>
+            </div>
+
+            <div id="gameOverScreen">
+                <div class="modal-box">
+                    <h1>GAME OVER</h1>
+                    <p>Final Score: <span id="finalScore">0</span></p>
+                    <button id="restartBtn" onclick="resetGame()">Play Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('boardContainer');
+        const scoreElement = document.getElementById('score');
+        const highscoreElement = document.getElementById('highscore');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startScreen = document.getElementById('startScreen');
+        const finalScoreElement = document.getElementById('finalScore');
+        const peekerImage = document.getElementById('peekerImage');
+
+        // Load your custom head image
+        const headImg = new Image();
+        headImg.src = 'image_6362e3.png.png'; 
+
+        const peekerAudio = new Audio('https://mp3tourl.com/audio/1781405274343-09b8a17b-6278-4df0-95bb-0be32c27d456.mp3');
+        const gameOverAudio = new Audio('https://www.image2url.com/r2/default/audio/1781408805951-109423f6-363c-4324-9c83-8758b90691e5.mp3');
+        const startClickAudio = new Audio('https://www.image2url.com/r2/default/audio/1781408858933-85f8c850-16cb-4299-a92e-51a47f935f44.mp3');
+        const eatAppleAudio = new Audio('https://www.image2url.com/r2/default/audio/1781408950075-9246d33e-df8e-4d2b-a8ab-32b23a98e2c8.mp3');
+
+        let peekerAudioPlayed = false;
+        let gameStarted = false; 
+
+        peekerAudio.onended = () => { peekerImage.classList.remove('peek'); };
+
+        let score = 0;
+        let highScore = 4;
+        let isGameOver = false;
+
+        let snakeX, snakeY;
+        let snakeRadius = 22;  
+        let snakeSpeed = 2.2; 
+        let snakeAngle = 0;
+        
+        let segmentCount = 24; 
+        let positionHistory = []; 
+        const segmentSpacing = 3; 
+
+        let mouseX, mouseY;
+        let appleX, appleY;
+        let appleRadius = 15; 
+        const tileSize = 44; 
+
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            if (snakeX === undefined) {
+                snakeX = canvas.width / 4;
+                snakeY = canvas.height / 2;
+                mouseX = canvas.width / 4 + 120; 
+                mouseY = canvas.height / 2;
+                spawnApple();
+            }
+        }
+
+        function startGame() {
+            startClickAudio.play().catch(e => console.log("Start audio failed", e));
+            startScreen.style.display = 'none';
+            gameStarted = true;
+        }
+
+        function spawnApple() {
+            const padding = 50;
+            appleX = Math.random() * (canvas.width - padding * 2) + padding;
+            appleY = Math.random() * (canvas.height - padding * 2) + padding;
+        }
+
+        window.addEventListener('mousemove', (event) => {
+            if (isGameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            mouseX = event.clientX - rect.left;
+            mouseY = event.clientY - rect.top;
+        });
+
+        function triggerGameOver() {
+            isGameOver = true;
+            finalScoreElement.innerText = score;
+            gameOverScreen.style.display = 'flex';
+            gameOverAudio.play().catch(e => console.log("Game over audio failed", e));
+        }
+
+        function resetGame() {
+            score = 0;
+            snakeX = canvas.width / 4;
+            snakeY = canvas.height / 2;
+            snakeAngle = 0;
+            segmentCount = 24;
+            positionHistory = [];
+            mouseX = canvas.width / 4 + 120;
+            mouseY = canvas.height / 2;
+            
+            scoreElement.innerText = score;
+            gameOverScreen.style.display = 'none';
+            isGameOver = false;
+
+            peekerImage.classList.remove('peek');
+            peekerAudio.pause();
+            peekerAudio.currentTime = 0;
+            peekerAudioPlayed = false;
+            
+            spawnApple();
+        }
+
+        function update() {
+            if (gameStarted && !isGameOver) {
+                let dx = mouseX - snakeX;
+                let dy = mouseY - snakeY;
+                let distanceToMouse = Math.sqrt(dx * dx + dy * dy);
+
+                if (distanceToMouse > 0) {
+                    let forwardX = Math.cos(snakeAngle);
+                    let forwardY = Math.sin(snakeAngle);
+                    let dotProduct = (dx * forwardX) + (dy * forwardY);
+                    if (dotProduct < 0) {
+                        triggerGameOver();
+                    }
+                }
+
+                if (distanceToMouse > 5) {
+                    let targetAngle = Math.atan2(dy, dx);
+                    let angleDiff = targetAngle - snakeAngle;
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    snakeAngle += angleDiff * 0.2;
+                }
+
+                snakeX += Math.cos(snakeAngle) * snakeSpeed;
+                snakeY += Math.sin(snakeAngle) * snakeSpeed;
+
+                if (snakeX < snakeRadius) snakeX = snakeRadius;
+                if (snakeX > canvas.width - snakeRadius) snakeX = canvas.width - snakeRadius;
+                if (snakeY < snakeRadius) snakeY = snakeRadius;
+                if (snakeY > canvas.height - snakeRadius) snakeY = canvas.height - snakeRadius;
+
+                positionHistory.unshift({ x: snakeX, y: snakeY, angle: snakeAngle });
+
+                const maxHistoryLength = (segmentCount + 1) * segmentSpacing;
+                if (positionHistory.length > maxHistoryLength) {
+                    positionHistory.pop();
+                }
+
+                for (let i = 20; i <= segmentCount; i++) {
+                    const historyIndex = i * segmentSpacing;
+                    if (positionHistory[historyIndex]) {
+                        const segment = positionHistory[historyIndex];
+                        let sdx = snakeX - segment.x;
+                        let sdy = snakeY - segment.y;
+                        let segmentDistance = Math.sqrt(sdx * sdx + sdy * sdy);
+                        if (segmentDistance < snakeRadius * 0.8) {
+                            triggerGameOver();
+                        }
+                    }
+                }
+
+                let adx = snakeX - appleX;
+                let ady = snakeY - appleY;
+                let appleDistance = Math.sqrt(adx * adx + ady * ady);
+
+                if (appleDistance < snakeRadius + appleRadius * 0.85) {
+                    score++;
+                    scoreElement.innerText = score;
+                    eatAppleAudio.currentTime = 0;
+                    eatAppleAudio.play().catch(e => console.log("Eat sound failed", e));
+
+                    if (score >= 24 && !peekerAudioPlayed) {
+                        peekerImage.classList.add('peek');
+                        peekerAudio.play().catch(e => console.log("Audio play failed: ", e));
+                        peekerAudioPlayed = true;
+                    }
+
+                    if (score > highScore) {
+                        highScore = score;
+                        highscoreElement.innerText = highScore;
+                    }
+                    segmentCount += 12; 
+                    spawnApple();
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            for (let x = 0; x < canvas.width; x += tileSize) {
+                for (let y = 0; y < canvas.height; y += tileSize) {
+                    if ((Math.floor(x / tileSize) + Math.floor(y / tileSize)) % 2 === 0) {
+                        ctx.fillStyle = '#1e1e1e'; 
+                    } else {
+                        ctx.fillStyle = '#262626'; 
+                    }
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                }
+            }
+            ctx.restore();
+
+            ctx.save();
+            ctx.font = `${appleRadius * 2}px Arial`; 
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("🍎", appleX, appleY);
+            ctx.restore();
+
+            ctx.save();
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 4;
+            ctx.shadowOffsetX = 0;
+            
+            // Snake Body Color (Red)
+            ctx.fillStyle = '#FF3B3B'; 
+            
+            for (let i = segmentCount; i >= 1; i--) {
+                const historyIndex = i * segmentSpacing;
+                if (positionHistory[historyIndex]) {
+                    const pt = positionHistory[historyIndex];
+                    ctx.beginPath();
+                    let currentRadius = snakeRadius;
+                    if (i > segmentCount - 5) {
+                        let tailScale = (segmentCount - i) / 5;
+                        currentRadius = snakeRadius * (0.6 + tailScale * 0.4);
+                    }
+                    ctx.arc(pt.x, pt.y, currentRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+
+            // Head logic
+            ctx.save();
+            ctx.translate(snakeX, snakeY);
+            // Rotate +90 degrees (Math.PI / 2) because images are usually drawn "up" by default
+            ctx.rotate(snakeAngle + Math.PI / 2); 
+            
+            // Increased scaling to compensate for transparent padding in the head image
+            const headWidth = snakeRadius * 3.8; 
+            const headHeight = snakeRadius * 3.2; 
+            ctx.drawImage(headImg, -headWidth / 2, -headHeight / 2, headWidth, headHeight);
+            
+            ctx.restore(); 
+            ctx.restore(); 
+
+            requestAnimationFrame(update);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        requestAnimationFrame(update);
+    </script>
+</body>
+</html>
