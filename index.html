@@ -149,7 +149,13 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
-        button:hover {
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-color: #555;
+        }
+
+        button:hover:not(:disabled) {
             background-color: #cc2a2a;
             transform: translateY(-2px);
         }
@@ -174,7 +180,7 @@
                 <div class="modal-box">
                     <h1>SNAKE</h1>
                     <p>Red Edition</p>
-                    <button onclick="startGame()">Click to Start</button>
+                    <button id="startButton" onclick="startGame()" disabled>Loading...</button>
                 </div>
             </div>
 
@@ -198,15 +204,50 @@
         const startScreen = document.getElementById('startScreen');
         const finalScoreElement = document.getElementById('finalScore');
         const peekerImage = document.getElementById('peekerImage');
+        const startButton = document.getElementById('startButton');
 
         // Load your custom head image
         const headImg = new Image();
         headImg.src = 'image_6362e3.png.png'; 
 
+        // Audio objects with aggressive preloading to eliminate delay
         const peekerAudio = new Audio('https://mp3tourl.com/audio/1781405274343-09b8a17b-6278-4df0-95bb-0be32c27d456.mp3');
+        peekerAudio.preload = 'auto';
+        peekerAudio.load();
+
         const gameOverAudio = new Audio('https://www.image2url.com/r2/default/audio/1781408805951-109423f6-363c-4324-9c83-8758b90691e5.mp3');
-        const startClickAudio = new Audio('https://www.image2url.com/r2/default/audio/1781408858933-85f8c850-16cb-4299-a92e-51a47f935f44.mp3');
+        gameOverAudio.preload = 'auto';
+        gameOverAudio.load();
+
         const eatAppleAudio = new Audio('https://www.image2url.com/r2/default/audio/1781408950075-9246d33e-df8e-4d2b-a8ab-32b23a98e2c8.mp3');
+        eatAppleAudio.preload = 'auto';
+        eatAppleAudio.load();
+
+        // Start sound with new WAV link – preloaded and fully buffered before allowing click
+        const startClickAudio = new Audio('https://mp3tourl.com/audio/1781750328230-ca1d8882-cbae-491a-8f68-8e52f4d3af07.wav');
+        startClickAudio.preload = 'auto';
+        startClickAudio.load();
+
+        // --- Enable start button only when audio is fully ready (no delay on click) ---
+        function enableStartButton() {
+            startButton.disabled = false;
+            startButton.textContent = 'Click to Start';
+        }
+
+        // If the audio is already loaded enough (readyState 3 or 4), enable now
+        if (startClickAudio.readyState >= 3) {
+            enableStartButton();
+        } else {
+            // Wait until enough data is buffered to play through without delay
+            startClickAudio.addEventListener('canplaythrough', enableStartButton, { once: true });
+            
+            // Fallback: if loading fails, still allow the button (game can start without sound)
+            startClickAudio.addEventListener('error', () => {
+                startButton.disabled = false;
+                startButton.textContent = 'Click to Start (no sound)';
+            }, { once: true });
+        }
+        // ----------------------------------------------------------------
 
         let peekerAudioPlayed = false;
         let gameStarted = false; 
@@ -244,7 +285,8 @@
         }
 
         function startGame() {
-            startClickAudio.play().catch(e => console.log("Start audio failed", e));
+            // Audio is already buffered, plays instantly
+            startClickAudio.play().catch(e => console.log("Start audio play failed", e));
             startScreen.style.display = 'none';
             gameStarted = true;
         }
